@@ -72,10 +72,16 @@
         }
         .action-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
 
-        /* [新增] 音效选择器样式 */
-        #audio-selector {
-            margin-top: 10px;
+        /* 下拉菜单和滑动条的通用容器样式 */
+        .control-group {
+            margin-top: 15px;
             pointer-events: auto;
+        }
+        .control-label {
+            font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 5px;
+        }
+
+        #audio-selector {
             background: rgba(0,0,0,0.5);
             border: 1px solid #d4af37;
             color: #d4af37;
@@ -83,6 +89,31 @@
             border-radius: 4px;
             font-size: 0.8rem;
             cursor: pointer;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        /* [新增] 滑动条样式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            max-width: 200px;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px; width: 14px;
+            border-radius: 50%;
+            background: #d4af37;
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 5px rgba(212, 175, 55, 0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
         }
         
         #file-input { display: none; }
@@ -150,14 +181,23 @@
                 <button class="action-btn" onclick="document.getElementById('file-input').click()">上传纪念照片</button>
             </div>
             
-            <!-- [新增] 音效切换UI -->
-            <div style="margin-top:15px;">
-                <label style="font-size:0.75rem; color:#aaa; display:block; margin-bottom:5px;">音效主题:</label>
+            <!-- 音效选择器 -->
+            <div class="control-group">
+                <label class="control-label">音效主题:</label>
                 <select id="audio-selector" onchange="AudioSys.changePack(this.value)">
                     <option value="0">经典 (Classic)</option>
                     <option value="1">鸡公煲</option>
                     <option value="2">空 (暂无)</option>
                 </select>
+            </div>
+
+            <!-- [新增] 灵敏度调整器 -->
+            <div class="control-group">
+                <label class="control-label">
+                    手势旋转灵敏度: <span id="sens-val" style="color:#d4af37">1.0</span>
+                </label>
+                <input type="range" id="sens-slider" min="0.1" max="3.0" step="0.1" value="1.0" 
+                       oninput="updateSensitivity(this.value)">
             </div>
 
             <input type="file" id="file-input" multiple accept="image/*">
@@ -181,6 +221,15 @@
             bloomStrength: 0.7, bloomThreshold: 0.35, bloomRadius: 0.6
         };
 
+        // [新增] 旋转灵敏度全局变量
+        let ROTATION_SENSITIVITY = 1.0;
+        
+        // 暴露给 HTML 调用
+        window.updateSensitivity = function(val) {
+            ROTATION_SENSITIVITY = parseFloat(val);
+            document.getElementById('sens-val').innerText = parseFloat(val).toFixed(1);
+        };
+
         const STATE = { TREE: 'tree', SCATTER: 'scatter', ZOOM: 'zoom' };
         let currentState = STATE.TREE;
         
@@ -200,13 +249,10 @@
         let isHandPresent = false;
         let rotationVelocity = { x: 0, y: 0 };
 
-        // --- [修改] 高级音频系统 (支持多音效包) ---
+        // --- 高级音频系统 ---
         const SOUND_PACKS = [
-            // Pack 0: 默认
             { name: "Classic", bgm: './bgm.mp3', open: './open.mp3', close: './close.mp3' },
-            // Pack 1: 示例 (你可以替换成真实的 mp3 URL)
-            { name: "Funny", bgm: './bgm_funny.mp3', open: './funny_open.mp3', close: './funny_close.mp3' },
-            // Pack 2: 示例
+            { name: "Funny", bgm: './bgm_funny.mp3', open: './open.mp3', close: './close.mp3' },
             { name: "Cyber", bgm: './bgm_cyber.mp3', open: './sci_open.mp3', close: './sci_close.mp3' }
         ];
 
@@ -225,22 +271,19 @@
 
             init: function() {
                 if(this.isInit) return;
-                this.loadPack(0); // 加载默认包
+                this.loadPack(0); 
                 this.bgm.loop = true;
                 
-                // 尝试播放
                 this.bgm.play().then(() => {
                     document.getElementById('audio-hint').style.opacity = '0';
                 }).catch(() => {});
                 this.isInit = true;
             },
 
-            // [新增] 切换音效包
             loadPack: function(index) {
                 const pack = SOUND_PACKS[index] || SOUND_PACKS[0];
                 this.currentPackIdx = index;
                 
-                // 记录当前播放状态
                 const isPlaying = !this.bgm.paused;
                 
                 this.bgm.src = pack.bgm;
@@ -254,18 +297,14 @@
                 if(this.isInit && isPlaying) {
                     this.bgm.play().catch(()=>{});
                 }
-                console.log(`Audio Pack Switched to: ${pack.name}`);
             },
 
-            // [新增] UI调用接口
             changePack: function(val) {
                 this.loadPack(parseInt(val));
             },
 
             triggerSfx: function(sfx) {
                 if(!this.isInit) return;
-                
-                // 安全检查：如果文件加载失败或不存在，不要报错
                 if(!sfx.src || sfx.src.endsWith('undefined')) return;
 
                 this.stopCurrentProcess();
@@ -280,7 +319,7 @@
                     this.activeTimeout = setTimeout(() => {
                         this.startCrossFade(sfx);
                     }, timeUntilFade);
-                }).catch(e => console.log("SFX Play error (missing file?)", e));
+                }).catch(e => console.log("SFX Play error", e));
             },
 
             stopCurrentProcess: function() {
@@ -353,7 +392,7 @@
             const pmremGenerator = new THREE.PMREMGenerator(renderer);
             scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); // 稍微调亮一点环境光以便看清照片
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
             scene.add(ambientLight);
 
             const spotLight = new THREE.SpotLight(0xffddaa, 100);
@@ -504,6 +543,7 @@
             composer.render();
         }
 
+        // --- [修改] 物理旋转逻辑，加入灵敏度系数 ---
         function handlePhysicsRotation() {
             if (currentState === STATE.ZOOM) {
                 rotationVelocity.x *= 0.8; rotationVelocity.y *= 0.8;
@@ -511,8 +551,15 @@
                 if (isHandPresent) {
                     const deltaX = handPos.x - lastHandPos.x;
                     const deltaY = handPos.y - lastHandPos.y;
-                    if (Math.abs(deltaX) > 0.001) rotationVelocity.y += deltaX * 0.2;
-                    if (Math.abs(deltaY) > 0.001) rotationVelocity.x += deltaY * 0.1;
+                    
+                    // 基础速度系数
+                    const baseSpeedX = 0.2;
+                    const baseSpeedY = 0.1;
+
+                    // 应用灵敏度倍率
+                    if (Math.abs(deltaX) > 0.001) rotationVelocity.y += deltaX * baseSpeedX * ROTATION_SENSITIVITY;
+                    if (Math.abs(deltaY) > 0.001) rotationVelocity.x += deltaY * baseSpeedY * ROTATION_SENSITIVITY;
+                    
                     lastHandPos.x = handPos.x; lastHandPos.y = handPos.y;
                 }
                 mainGroup.rotation.y += rotationVelocity.y;
@@ -563,14 +610,8 @@
             dustSystem.geometry.attributes.position.needsUpdate = true;
         }
 
-        // --- [修改] 修复 Zoom 逻辑，防止飞出屏幕 ---
         function updatePhotoLogic() {
-            // 计算相机在 mainGroup 内部的相对位置（用于散开模式的朝向）
             _tempVec3.copy(camera.position).applyMatrix4(mainGroup.matrixWorld.clone().invert());
-            
-            // [核心修复] 预先计算一个“完美朝向”的旋转四元数
-            // 原理：让照片的世界旋转角度 = 相机的世界旋转角度
-            // 公式：本地旋转 = 父级世界旋转的逆 * 目标世界旋转(相机)
             const parentInv = mainGroup.quaternion.clone().invert();
             const alignToCamQuat = camera.quaternion.clone().premultiply(parentInv);
 
@@ -578,33 +619,23 @@
                 let targetPos, targetScale = 2.0; 
                 
                 if (currentState === STATE.ZOOM && idx === zoomTargetIndex) {
-                    // 1. 位置计算：锁定在相机正前方 25 单位处
                     const camFrontWorld = new THREE.Vector3(0, 0, -25).applyMatrix4(camera.matrixWorld);
                     targetPos = mainGroup.worldToLocal(camFrontWorld);
-                    
-                    targetScale = 3.0; // 放大倍数
-                    
-                    // [核心修复] 使用四元数插值 (Slerp) 强制让照片平行于屏幕
-                    // 这样无论照片从哪里飞过来，它始终正对着你，不会出现侧面或背面
+                    targetScale = 3.0; 
                     mesh.quaternion.slerp(alignToCamQuat, 0.1);
 
                 } else {
-                    // 非聚焦照片的逻辑
                     targetPos = currentState === STATE.TREE ? mesh.userData.treePos : mesh.userData.scatterPos;
                     if(currentState !== STATE.TREE) mesh.position.y += Math.sin(time+idx)*0.02;
                     if(currentState === STATE.SCATTER) targetScale = 3.0;
                     
                     if (currentState === STATE.TREE) {
-                         // 圣诞树形态：自转
                          mesh.rotation.copy(mesh.userData.baseRot);
                          mesh.rotation.y += 0.01;
                     } else {
-                        // 散开形态：看着相机（这里用 lookAt 没问题，因为不需要完美平行）
                         mesh.lookAt(_tempVec3);
                     }
                 }
-                
-                // 位置和大小的平滑过渡
                 mesh.position.lerp(targetPos, 0.1);
                 mesh.scale.setScalar(THREE.MathUtils.lerp(mesh.scale.x, targetScale, 0.1));
             });
@@ -766,7 +797,6 @@
             }
         });
 
-        // --- [修改] 修复照片太亮的问题 ---
         function addPhotoMesh(img) {
             const tex = new THREE.Texture(img);
             tex.needsUpdate = true; tex.colorSpace = THREE.SRGBColorSpace;
@@ -774,12 +804,10 @@
             if(img.width > img.height) h = 4 * (img.height/img.width); else w = 4 * (img.width/img.height);
             const geo = new THREE.PlaneGeometry(w, h);
             
-            // 修复：改用 Standard 材质，并把颜色调暗一点 (0xaaaaaa)，防止 Bloom 过曝
-            // 增加粗糙度 (roughness) 防止像镜子一样反光
             const mat = new THREE.MeshStandardMaterial({ 
                 map: tex, 
                 side: THREE.DoubleSide,
-                color: 0xaaaaaa, // 稍微调暗，避免白色部分过曝发光
+                color: 0xaaaaaa, 
                 roughness: 0.8,
                 metalness: 0.1
             });
@@ -807,3 +835,4 @@
     </script>
 </body>
 </html>
+
