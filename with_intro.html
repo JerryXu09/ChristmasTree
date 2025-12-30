@@ -248,12 +248,9 @@
                 // 1. 相机与运镜逻辑
                 if (elapsed < 3.1) {
                     // Phase 1: 0-3.1s 俯视树顶，旋转加速
-                    // 目标位置：偏上，固定
                     const p = elapsed / 3.1;
                     camera.position.set(20, 80, 20); 
-                    camera.lookAt(0, 45, 0); // 看向树的上半部分
-                    
-                    // 旋转加速：基础慢速 + 加速度
+                    camera.lookAt(0, 45, 0); 
                     mainGroup.rotation.y -= (0.005 + p * 0.04); 
 
                 } else if (elapsed < 7.2) {
@@ -267,10 +264,10 @@
                     camera.position.lerpVectors(startPos, endPos, smoothP);
                     camera.lookAt(0, 0, 0);
 
-                    // 4.9s 触发爆炸
+                    // 4.9s 触发爆炸 (修改：移除了 AudioSys.playOpen())
                     if (elapsed >= 4.9 && currentState !== STATE.SCATTER) {
                         currentState = STATE.SCATTER;
-                        AudioSys.playOpen(); // 配合音效
+                        // AudioSys.playOpen(); // 已移除，避免与BGM冲突
                     }
                     
                     // 保持一定的旋转惯性
@@ -287,10 +284,10 @@
                     camera.position.lerpVectors(startPos, endPos, smoothP);
                     camera.lookAt(0, 0, 0);
 
-                    // 10.2s 恢复闭合
+                    // 10.2s 恢复闭合 (修改：移除了 AudioSys.playClose())
                     if (elapsed >= 10.2 && currentState !== STATE.TREE) {
                         currentState = STATE.TREE;
-                        AudioSys.playClose();
+                        // AudioSys.playClose(); // 已移除，避免与BGM冲突
                     }
 
                     // 慢慢修正旋转角度，使其比较正
@@ -318,7 +315,7 @@
 
         window.AudioSys = {
             bgm: new Audio(),
-            introBgm: new Audio('./intro.mp3'), // 新增 Intro 音频
+            introBgm: new Audio('./intro.mp3'), 
             openSfx: new Audio(),
             closeSfx: new Audio(),
             
@@ -331,7 +328,6 @@
             currentSfx: null,
 
             init: function() {
-                // 仅用于首次用户交互解锁AudioContext
                 if(this.isInit) return;
                 this.loadPack(0);
                 this.bgm.loop = true;
@@ -340,24 +336,20 @@
             },
 
             playIntro: function() {
-                if(!this.isInit) this.init(); // 确保初始化
+                if(!this.isInit) this.init(); 
                 
-                // 停止当前 BGM
                 this.bgm.pause();
                 this.bgm.currentTime = 0;
                 
-                // 播放 Intro
                 this.introBgm.currentTime = 0;
                 this.introBgm.volume = 1.0;
                 this.introBgm.play().catch(e => console.log("Audio play failed (interaction needed)", e));
             },
 
             endIntroAndStartLoop: function() {
-                // 淡出 Intro (13s时调用，Intro全长15s，也就是还有2s淡出时间)
                 const fadeDuration = 2000; 
                 const startTime = performance.now();
                 
-                // 开始播放 Loop BGM (音量从0开始)
                 this.bgm.volume = 0;
                 this.bgm.play().catch(()=>{});
 
@@ -365,7 +357,6 @@
                     const elapsed = performance.now() - startTime;
                     const progress = Math.min(elapsed / fadeDuration, 1.0);
                     
-                    // Intro 变小，BGM 变大
                     this.introBgm.volume = 1.0 - progress;
                     this.bgm.volume = progress * this.config.bgmNormal;
 
@@ -397,22 +388,20 @@
 
             triggerSfx: function(sfx) {
                 if(!this.isInit) return;
-                // 动画期间不播放普通交互音效，除非是脚本控制的
-                // 这里我们稍微放宽，允许脚本控制的 currentState 变化触发音效
+                
+                // --- 修改点：如果正在播放开场动画，强制禁止播放音效 ---
+                if(AnimationSys.isPlaying) return; 
+
                 if(!sfx.src || sfx.src.endsWith('undefined')) return;
 
                 this.stopCurrentProcess();
-                // 如果正在播放Intro，不要压低Intro音量，Intro是主角
-                if (!AnimationSys.isPlaying) {
-                    this.bgm.volume = this.config.bgmDuck;
-                }
+                this.bgm.volume = this.config.bgmDuck;
                 
                 this.currentSfx = sfx;
                 sfx.currentTime = 0;
                 sfx.volume = 1.0;
                 
                 sfx.play().then(() => {
-                    if (AnimationSys.isPlaying) return; // 动画期间不需要 CrossFade BGM
                     const duration = isNaN(sfx.duration) ? 3.0 : sfx.duration;
                     const timeUntilFade = Math.max(0, duration - this.config.fadeTime) * 1000;
                     this.activeTimeout = setTimeout(() => {
