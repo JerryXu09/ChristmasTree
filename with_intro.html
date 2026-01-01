@@ -2,35 +2,43 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Christmas Tree - Cinematic Intro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magic Christmas Tree - Mobile Fullscreen</title>
     <style>
-        /* ... 保持原有样式不变 ... */
         body { 
             margin: 0; overflow: hidden; background-color: #000; 
             font-family: 'Helvetica Neue', Arial, sans-serif; 
-            display: flex; justify-content: center; align-items: center; 
-            height: 100vh; user-select: none;
+            width: 100vw; height: 100vh;
+            user-select: none;
+            -webkit-touch-callout: none; /* 禁止iOS长按菜单 */
         }
 
+        /* 修改：移除固定尺寸和阴影，改为全屏填充 */
         #canvas-wrapper {
-            position: relative;
-            box-shadow: 0 0 80px rgba(212, 175, 55, 0.15);
+            position: absolute;
+            top: 0; left: 0;
+            width: 100% !important;
+            height: 100% !important;
             background: #000;
             overflow: hidden;
-            border-radius: 4px;
         }
 
         #canvas-container { width: 100%; height: 100%; display: block; }
         
+        /* 修改：针对手机缩小摄像头预览窗口 */
         #video-container {
-            position: absolute; top: 20px; right: 20px; width: 160px; height: 120px; z-index: 2;
-            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; overflow: hidden;
+            position: absolute; top: 20px; right: 20px; 
+            width: 120px; height: 90px; z-index: 2;
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; overflow: hidden;
             transform: scaleX(-1);
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
             background: rgba(0,0,0,0.8);
             transition: opacity 0.5s ease;
         }
+        @media (max-width: 600px) {
+            #video-container { width: 80px; height: 60px; top: 10px; right: 10px; }
+        }
+
         #input-video { 
             width: 100%; height: 100%; object-fit: cover; opacity: 0.5; 
             position: absolute; top: 0; left: 0;
@@ -39,38 +47,52 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
         }
 
+        /* 修改：UI层增加最大宽度限制，防止手机上太宽 */
         #ui-layer {
             position: absolute; top: 40px; left: 40px; z-index: 3; pointer-events: none;
             color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.9);
             transition: opacity 0.5s;
+            max-width: 80%; /* 防止溢出 */
+        }
+        @media (max-width: 600px) {
+            #ui-layer { top: 20px; left: 20px; }
         }
 
         h1 {
-            font-weight: 200; letter-spacing: 6px; text-transform: uppercase; font-size: 2rem; margin: 0 0 15px 0;
+            font-weight: 200; letter-spacing: 4px; text-transform: uppercase; font-size: 2rem; margin: 0 0 10px 0;
             background: linear-gradient(to right, #fff, #ffd700, #fff); 
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; letter-spacing: 2px; }
+        }
 
         .instructions {
-            font-size: 0.85rem; color: #ccc; line-height: 1.8; max-width: 300px;
-            background: rgba(10, 10, 10, 0.6); padding: 20px; border-radius: 12px;
+            font-size: 0.85rem; color: #ccc; line-height: 1.6; max-width: 300px;
+            background: rgba(10, 10, 10, 0.6); padding: 15px; border-radius: 12px;
             border-left: 2px solid #d4af37; backdrop-filter: blur(8px);
             border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
+        @media (max-width: 600px) {
+            .instructions { font-size: 0.75rem; padding: 10px; max-width: 240px; }
+        }
+
         .highlight { color: #d4af37; font-weight: 600; padding: 0 4px; }
-        #status-text { margin-bottom: 12px; font-size: 1.1rem; color: #fff; font-weight: 500; display: flex; align-items: center; gap: 8px;}
+        #status-text { margin-bottom: 12px; font-size: 1rem; color: #fff; font-weight: 500; display: flex; align-items: center; gap: 8px;}
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block;}
 
-        .btn-group { display: flex; gap: 10px; margin-top: 25px; pointer-events: auto; flex-wrap: wrap; max-width: 320px; }
+        .btn-group { display: flex; gap: 8px; margin-top: 20px; pointer-events: auto; flex-wrap: wrap; max-width: 300px; }
 
         .action-btn {
-            background: rgba(255,255,255,0.1); 
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff; padding: 10px 20px; cursor: pointer; text-transform: uppercase;
-            font-size: 0.7rem; transition: all 0.3s ease; 
+            background: rgba(255,255,255,0.15); 
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff; padding: 8px 16px; cursor: pointer; text-transform: uppercase;
+            font-size: 0.75rem; transition: all 0.3s ease; 
             letter-spacing: 1px; border-radius: 30px;
+            /* 增大点击区域 */
+            min-height: 36px;
         }
-        .action-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        .action-btn:hover, .action-btn:active { background: #fff; color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
 
         .control-group { margin-top: 15px; pointer-events: auto; }
         .control-label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 5px; }
@@ -78,13 +100,13 @@
         #audio-selector {
             background: rgba(0,0,0,0.5); border: 1px solid #d4af37; color: #d4af37;
             padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;
-            width: 100%; max-width: 200px;
+            width: 100%; max-width: 180px;
         }
 
-        input[type=range] { -webkit-appearance: none; width: 100%; max-width: 200px; background: transparent; }
+        input[type=range] { -webkit-appearance: none; width: 100%; max-width: 180px; background: transparent; }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
-            background: #d4af37; cursor: pointer; margin-top: -5px;
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+            background: #d4af37; cursor: pointer; margin-top: -7px;
             box-shadow: 0 0 5px rgba(212, 175, 55, 0.8);
         }
         input[type=range]::-webkit-slider-runnable-track {
@@ -96,11 +118,11 @@
         #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             color: #d4af37; font-size: 1rem; letter-spacing: 4px; z-index: 10; 
-            pointer-events: none; transition: opacity 0.5s; font-weight: 300;
+            pointer-events: none; transition: opacity 0.5s; font-weight: 300; width: 100%; text-align: center;
         }
 
         #fullscreen-btn {
-            position: absolute; bottom: 30px; right: 30px; z-index: 20;
+            position: absolute; bottom: 30px; right: 20px; z-index: 20;
             background: rgba(0,0,0,0.3); color: #d4af37; border: 1px solid rgba(212, 175, 55, 0.3);
             width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
@@ -115,7 +137,7 @@
         #audio-hint {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             color: rgba(255,255,255,0.5); font-size: 0.8rem; pointer-events: none;
-            transition: opacity 1s;
+            transition: opacity 1s; width: 100%; text-align: center;
         }
     </style>
     
@@ -146,21 +168,21 @@
             <div class="instructions">
                 • <span class="highlight">握拳</span> : 聚合圣诞树<br/>
                 • <span class="highlight">张手</span> : 星云散开<br/>
-                • <span class="highlight">挥动</span> : 旋转视图 (仅散开时)<br/>
+                • <span class="highlight">挥动</span> : 旋转视图 (散开时)<br/>
                 • <span class="highlight">捏合</span> : 抓取照片 (需上传)
             </div>
             
             <div class="btn-group">
-                <button class="action-btn" onclick="document.getElementById('file-input').click()">上传纪念照片</button>
-                <button class="action-btn" onclick="AnimationSys.replay()">重播开场动画</button>
+                <button class="action-btn" onclick="document.getElementById('file-input').click()">上传照片</button>
+                <button class="action-btn" onclick="AnimationSys.replay()">重播动画</button>
             </div>
             
             <div class="control-group">
                 <label class="control-label">音效主题:</label>
                 <select id="audio-selector" onchange="AudioSys.changePack(this.value)">
                     <option value="0">经典 (Classic)</option>
-                    <option value="1">鸡公煲</option>
-                    <option value="2">空 (暂无)</option>
+                    <option value="1">趣味 (Funny)</option>
+                    <option value="2">赛博 (Cyber)</option>
                 </select>
             </div>
 
@@ -189,9 +211,13 @@
         // --- 全局配置 ---
         const CONFIG = {
             goldCount: 500, silverCount: 500, gemCount: 300, emeraldCount: 300, dustCount: 1000,
-            treeHeight: 75, maxRadius: 30, camDistance: 110,
+            treeHeight: 75, maxRadius: 30, 
+            baseCamDistance: 110, // 基础距离
             bloomStrength: 0.7, bloomThreshold: 0.35, bloomRadius: 0.6
         };
+
+        // 动态计算实际距离
+        let currentCamDistance = CONFIG.baseCamDistance;
 
         let ROTATION_SENSITIVITY = 1.0;
         window.updateSensitivity = function(val) {
@@ -247,66 +273,58 @@
                 
                 // 1. 相机与运镜逻辑
                 if (elapsed < 3.1) {
-                    // Phase 1: 0-3.1s 俯视树顶，旋转加速
+                    // Phase 1: 0-3.1s 俯视树顶
                     const p = elapsed / 3.1;
                     camera.position.set(20, 80, 20); 
                     camera.lookAt(0, 45, 0); 
                     mainGroup.rotation.y -= (0.005 + p * 0.04); 
 
                 } else if (elapsed < 7.2) {
-                    // Phase 2: 3.1-7.2s 底部向上，反向移动
+                    // Phase 2: 3.1-7.2s 底部向上
                     const p = (elapsed - 3.1) / (7.2 - 3.1);
-                    const smoothP = p * p * (3 - 2 * p); // SmoothStep
+                    const smoothP = p * p * (3 - 2 * p); 
 
                     const startPos = new THREE.Vector3(0, -60, 30);
-                    const endPos = new THREE.Vector3(0, 20, 140);
+                    // 动态调整结束点，防止手机上穿模
+                    const endPos = new THREE.Vector3(0, 20, currentCamDistance * 1.2);
                     
                     camera.position.lerpVectors(startPos, endPos, smoothP);
                     camera.lookAt(0, 0, 0);
 
-                    // 4.9s 触发爆炸 (修改：移除了 AudioSys.playOpen())
                     if (elapsed >= 4.9 && currentState !== STATE.SCATTER) {
                         currentState = STATE.SCATTER;
-                        // AudioSys.playOpen(); // 已移除，避免与BGM冲突
                     }
-                    
-                    // 保持一定的旋转惯性
                     mainGroup.rotation.y -= 0.01;
 
                 } else if (elapsed < 13.0) {
                     // Phase 3: 7.2-13.0s 侧方偏远回归中心
                     const p = (elapsed - 7.2) / (13.0 - 7.2);
-                    const smoothP = p * p * (3 - 2 * p); // SmoothStep
+                    const smoothP = p * p * (3 - 2 * p);
 
-                    const startPos = new THREE.Vector3(-50, 10, 160); // 偏左偏远
-                    const endPos = new THREE.Vector3(0, 0, CONFIG.camDistance); // 默认位置
+                    const startPos = new THREE.Vector3(-50, 10, currentCamDistance * 1.4); 
+                    const endPos = new THREE.Vector3(0, 0, currentCamDistance); 
 
                     camera.position.lerpVectors(startPos, endPos, smoothP);
                     camera.lookAt(0, 0, 0);
 
-                    // 10.2s 恢复闭合 (修改：移除了 AudioSys.playClose())
                     if (elapsed >= 10.2 && currentState !== STATE.TREE) {
                         currentState = STATE.TREE;
-                        // AudioSys.playClose(); // 已移除，避免与BGM冲突
                     }
 
-                    // 慢慢修正旋转角度，使其比较正
                     mainGroup.rotation.y += 0.004;
                     mainGroup.rotation.x *= 0.9;
                 } else {
                     // 结束动画
                     this.isPlaying = false;
-                    camera.position.set(0, 0, CONFIG.camDistance);
+                    camera.position.set(0, 0, currentCamDistance);
                     camera.lookAt(0, 0, 0);
                     updateStatus("动画结束，请伸手互动", "#0f0");
-                    
-                    // 触发淡出 Intro，淡入 BGM
                     AudioSys.endIntroAndStartLoop();
                 }
             }
         };
 
-        // --- 音频系统 ---
+        // --- 音频系统 (保持不变) ---
         const SOUND_PACKS = [
             { name: "Classic", bgm: './bgm.mp3', open: './open.mp3', close: './close.mp3' },
             { name: "Funny", bgm: './bgm_funny.mp3', open: './open.mp3', close: './close.mp3' },
@@ -318,14 +336,9 @@
             introBgm: new Audio('./intro.mp3'), 
             openSfx: new Audio(),
             closeSfx: new Audio(),
-            
             currentPackIdx: 0,
             config: { bgmNormal: 0.4, bgmDuck: 0.05, fadeTime: 3.5 },
-
-            isInit: false,
-            activeFade: null,
-            activeTimeout: null,
-            currentSfx: null,
+            isInit: false, activeFade: null, activeTimeout: null, currentSfx: null,
 
             init: function() {
                 if(this.isInit) return;
@@ -337,33 +350,20 @@
 
             playIntro: function() {
                 if(!this.isInit) this.init(); 
-                
-                this.bgm.pause();
-                this.bgm.currentTime = 0;
-                
-                this.introBgm.currentTime = 0;
-                this.introBgm.volume = 1.0;
-                this.introBgm.play().catch(e => console.log("Audio play failed (interaction needed)", e));
+                this.bgm.pause(); this.bgm.currentTime = 0;
+                this.introBgm.currentTime = 0; this.introBgm.volume = 1.0;
+                this.introBgm.play().catch(e => console.log("Audio play failed", e));
             },
 
             endIntroAndStartLoop: function() {
-                const fadeDuration = 2000; 
-                const startTime = performance.now();
-                
-                this.bgm.volume = 0;
-                this.bgm.play().catch(()=>{});
-
+                const fadeDuration = 2000; const startTime = performance.now();
+                this.bgm.volume = 0; this.bgm.play().catch(()=>{});
                 const fadeInterval = setInterval(() => {
                     const elapsed = performance.now() - startTime;
                     const progress = Math.min(elapsed / fadeDuration, 1.0);
-                    
                     this.introBgm.volume = 1.0 - progress;
                     this.bgm.volume = progress * this.config.bgmNormal;
-
-                    if (progress >= 1.0) {
-                        clearInterval(fadeInterval);
-                        this.introBgm.pause();
-                    }
+                    if (progress >= 1.0) { clearInterval(fadeInterval); this.introBgm.pause(); }
                 }, 50);
             },
 
@@ -371,81 +371,47 @@
                 const pack = SOUND_PACKS[index] || SOUND_PACKS[0];
                 this.currentPackIdx = index;
                 const isPlaying = !this.bgm.paused;
-                this.bgm.src = pack.bgm;
-                this.bgm.volume = this.config.bgmNormal;
-                this.openSfx.src = pack.open;
-                this.closeSfx.src = pack.close;
-                this.openSfx.load();
-                this.closeSfx.load();
-                if(this.isInit && isPlaying && !AnimationSys.isPlaying) {
-                    this.bgm.play().catch(()=>{});
-                }
+                this.bgm.src = pack.bgm; this.bgm.volume = this.config.bgmNormal;
+                this.openSfx.src = pack.open; this.closeSfx.src = pack.close;
+                this.openSfx.load(); this.closeSfx.load();
+                if(this.isInit && isPlaying && !AnimationSys.isPlaying) { this.bgm.play().catch(()=>{}); }
             },
-
-            changePack: function(val) {
-                this.loadPack(parseInt(val));
-            },
-
+            changePack: function(val) { this.loadPack(parseInt(val)); },
             triggerSfx: function(sfx) {
-                if(!this.isInit) return;
-                
-                // --- 修改点：如果正在播放开场动画，强制禁止播放音效 ---
-                if(AnimationSys.isPlaying) return; 
-
+                if(!this.isInit || AnimationSys.isPlaying) return;
                 if(!sfx.src || sfx.src.endsWith('undefined')) return;
-
                 this.stopCurrentProcess();
                 this.bgm.volume = this.config.bgmDuck;
-                
-                this.currentSfx = sfx;
-                sfx.currentTime = 0;
-                sfx.volume = 1.0;
-                
+                this.currentSfx = sfx; sfx.currentTime = 0; sfx.volume = 1.0;
                 sfx.play().then(() => {
                     const duration = isNaN(sfx.duration) ? 3.0 : sfx.duration;
                     const timeUntilFade = Math.max(0, duration - this.config.fadeTime) * 1000;
-                    this.activeTimeout = setTimeout(() => {
-                        this.startCrossFade(sfx);
-                    }, timeUntilFade);
+                    this.activeTimeout = setTimeout(() => { this.startCrossFade(sfx); }, timeUntilFade);
                 }).catch(e => console.log("SFX Play error", e));
             },
-
             stopCurrentProcess: function() {
                 if (this.activeTimeout) clearTimeout(this.activeTimeout);
                 if (this.activeFade) cancelAnimationFrame(this.activeFade);
-                if (this.currentSfx) {
-                    this.currentSfx.pause();
-                    this.currentSfx.currentTime = 0;
-                }
+                if (this.currentSfx) { this.currentSfx.pause(); this.currentSfx.currentTime = 0; }
             },
-
             startCrossFade: function(sfx) {
                 const startTime = performance.now();
                 const startBgmVol = this.bgm.volume;
                 const targetBgmVol = this.config.bgmNormal;
-                
                 const loop = () => {
                     const elapsed = (performance.now() - startTime) / 1000;
                     const progress = Math.min(elapsed / this.config.fadeTime, 1.0);
                     this.bgm.volume = startBgmVol + (targetBgmVol - startBgmVol) * progress;
                     if(this.currentSfx === sfx) sfx.volume = 1.0 - progress;
-
-                    if (progress < 1.0) {
-                        this.activeFade = requestAnimationFrame(loop);
-                    } else {
-                        sfx.pause();
-                        this.bgm.volume = this.config.bgmNormal;
-                        this.currentSfx = null;
-                    }
+                    if (progress < 1.0) { this.activeFade = requestAnimationFrame(loop); } 
+                    else { sfx.pause(); this.bgm.volume = this.config.bgmNormal; this.currentSfx = null; }
                 };
                 this.activeFade = requestAnimationFrame(loop);
             },
-
             playOpen: function() { this.triggerSfx(this.openSfx); },
             playClose: function() { this.triggerSfx(this.closeSfx); }
         };
 
-        // 用户首次点击初始化音频上下文
         document.body.addEventListener('click', () => AudioSys.init(), { once: true });
         document.body.addEventListener('touchstart', () => AudioSys.init(), { once: true });
 
@@ -458,6 +424,40 @@
             document.getElementById('status-dot').style.background = color;
         }
 
+        // --- 核心修复：更新尺寸逻辑 ---
+        function updateDimensions() {
+            // 移除4:3限制，直接使用屏幕全尺寸
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            // 确保Wrapper填满
+            const wrapper = document.getElementById('canvas-wrapper');
+            wrapper.style.width = '100%';
+            wrapper.style.height = '100%';
+
+            return { width, height };
+        }
+
+        // --- 核心修复：根据屏幕比例调整相机距离 ---
+        function adjustCameraDistance(width, height) {
+            const aspect = width / height;
+            // 如果是竖屏（比例小于1），树会因为宽度不够被截断
+            // 所以需要把相机拉远
+            if (aspect < 1.0) {
+                // 简单的比例算法：越窄，离得越远
+                // 基准是横屏 4:3 (aspect ~1.33) 距离 110
+                // 竖屏 9:16 (aspect ~0.56) 需要更远
+                const factor = 1.0 / aspect; // 比如 1/0.56 ≈ 1.78
+                currentCamDistance = CONFIG.baseCamDistance * factor * 0.8; 
+            } else {
+                currentCamDistance = CONFIG.baseCamDistance;
+            }
+            // 如果不在动画中，立即应用
+            if (!AnimationSys.isPlaying && camera) {
+                camera.position.z = currentCamDistance;
+            }
+        }
+
         function initThree() {
             const wrapper = document.getElementById('canvas-wrapper');
             const container = document.getElementById('canvas-container');
@@ -466,13 +466,15 @@
             scene.background = new THREE.Color(0x050505); 
             scene.fog = new THREE.FogExp2(0x050505, 0.002);
 
-            updateDimensions();
+            const dims = updateDimensions();
+            adjustCameraDistance(dims.width, dims.height);
 
-            camera = new THREE.PerspectiveCamera(50, wrapper.clientWidth / wrapper.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, CONFIG.camDistance);
+            camera = new THREE.PerspectiveCamera(50, dims.width / dims.height, 0.1, 1000);
+            camera.position.set(0, 0, currentCamDistance);
 
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", stencil: false });
-            renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+            renderer.setSize(dims.width, dims.height);
+            // 手机上限制像素比，防止过热卡顿
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.1;
@@ -495,7 +497,7 @@
             scene.add(blueLight);
             
             const renderScene = new RenderPass(scene, camera);
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(wrapper.clientWidth, wrapper.clientHeight), 1.5, 0.4, 0.85);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(dims.width, dims.height), 1.5, 0.4, 0.85);
             bloomPass.threshold = CONFIG.bloomThreshold;
             bloomPass.strength = CONFIG.bloomStrength;
             bloomPass.radius = CONFIG.bloomRadius;
@@ -512,23 +514,7 @@
             window.addEventListener('resize', onWindowResize);
         }
 
-        function updateDimensions() {
-            const targetAspect = 4 / 3;
-            const windowAspect = window.innerWidth / window.innerHeight;
-            let width, height;
-            if (windowAspect > targetAspect) {
-                height = window.innerHeight;
-                width = height * targetAspect;
-            } else {
-                width = window.innerWidth;
-                height = width / targetAspect;
-            }
-            const wrapper = document.getElementById('canvas-wrapper');
-            wrapper.style.width = width + 'px';
-            wrapper.style.height = height + 'px';
-            return { width, height };
-        }
-
+        // ... Meshes 创建函数保持不变 ...
         function createMaterialsAndMeshes() {
             const goldMat = new THREE.MeshPhysicalMaterial({ color: 0xffaa00, metalness: 1.0, roughness: 0.15, clearcoat: 1.0, emissive: 0xaa5500, emissiveIntensity: 0.1 });
             const silverMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.2, clearcoat: 1.0 });
@@ -612,11 +598,9 @@
             const now = performance.now();
             time += 0.01;
 
-            // 检查并更新入场动画
             if (AnimationSys.isPlaying) {
                 AnimationSys.update(now);
             } else {
-                // 仅在非动画期间执行物理旋转逻辑
                 handlePhysicsRotation();
             }
 
@@ -738,13 +722,15 @@
                     runningMode: "VIDEO", numHands: 1
                 });
                 const video = document.getElementById("input-video");
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // 增加 playsinline 属性确保在iOS上不自动全屏播放视频
+                video.setAttribute('playsinline', '');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" } // 优先使用前置摄像头
+                });
                 video.srcObject = stream;
                 video.addEventListener("loadeddata", () => {
                     document.getElementById('loading').style.display = 'none';
                     predictWebcam(handLandmarker, video);
-                    
-                    // 加载完毕且获取权限后，播放入场动画
                     AnimationSys.start();
                 });
             } catch (error) {
@@ -779,11 +765,7 @@
                 const landmarks = result.landmarks[0];
                 isHandPresent = true;
                 drawSkeleton(ctx, landmarks, canvas.width, canvas.height);
-                
-                // 动画播放期间，不处理手势逻辑
-                if (!AnimationSys.isPlaying) {
-                    handleGesture(landmarks);
-                }
+                if (!AnimationSys.isPlaying) handleGesture(landmarks);
             } else {
                 isHandPresent = false;
             }
@@ -823,7 +805,7 @@
                     switchToZoom();
                     updateStatus("抓取照片: 聚焦回忆", "#ffd700");
                 } else {
-                    updateStatus("请先点击右下角上传照片", "#aaa");
+                    updateStatus("请先上传照片", "#aaa");
                 }
             } else if (isFist) {
                 if (currentState !== STATE.TREE) {
@@ -863,6 +845,9 @@
 
         function onWindowResize() {
             const dims = updateDimensions();
+            // 窗口变化时，重新计算相机距离
+            adjustCameraDistance(dims.width, dims.height);
+            
             camera.aspect = dims.width / dims.height;
             camera.updateProjectionMatrix();
             renderer.setSize(dims.width, dims.height);
