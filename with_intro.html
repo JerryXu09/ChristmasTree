@@ -244,131 +244,133 @@
         let isHandPresent = false;
         let rotationVelocity = { x: 0, y: 0 };
 
-// --- 动画控制系统 ---
-window.AnimationSys = {
-    isPlaying: false,
-    startTime: 0,
-    // 定义运镜曲线缓存
-    curve: null, 
-    
-    start: function() {
-        this.isPlaying = true;
-        this.startTime = performance.now();
-        currentState = STATE.TREE;
-        
-        // 播放Intro音乐
-        AudioSys.playIntro();
-        updateStatus("CINE ANIMATION START", "#d4af37");
-
-        // 初始化 Phase 2 的复杂运镜曲线
-        // 逻辑：点越密速度越慢，点越稀疏速度越快（在使用 getPoint 时）
-        // 或者是通过 Easing 函数控制。这里我们采用控制点位 + Easing 结合。
-        if (!this.curve) {
-            this.curve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-45, -110, 90), // P0: 新增绿色起点（更低、更远、偏左）
-                new THREE.Vector3(-20, -50, 50),  // P1: 接近树底（保持一段匀速）
-                new THREE.Vector3(5, -5, 25),     // P2: 红色核心区（树干底部附近，急速转弯点）
-                new THREE.Vector3(25, 60, 120),   // P3: 红色/绿色交界（飞出，点距拉大=加速）
-                new THREE.Vector3(0, 120, 180)    // P4: 新增绿色终点（很高、很远、居中，减速）
-            ]);
-            // 闭合设为false，张力设为0.5让曲线更圆滑
-            this.curve.closed = false; 
-            this.curve.tension = 0.5;
-        }
-    },
-
-    replay: function() {
-        mainGroup.rotation.set(0,0,0);
-        rotationVelocity = {x:0, y:0};
-        this.start();
-    },
-
-    update: function(now) {
-        if (!this.isPlaying) return;
-
-        const elapsed = (now - this.startTime) / 1000;
-        
-        // 1. 相机与运镜逻辑
-        if (elapsed < 3.1) {
-            // Phase 1: 0-3.1s 俯视树顶，旋转加速
-            const p = elapsed / 3.1;
-            camera.position.set(20, 80, 20); 
-            camera.lookAt(0, 45, 0); 
-            mainGroup.rotation.y -= (0.005 + p * 0.04); 
-
-        } else if (elapsed < 7.2) {
-            // === [修改重点] Phase 2: 3.1-7.2s 复杂曲线运镜 ===
-            // 持续时间 4.1秒
-            const duration = 7.2 - 3.1;
-            const rawP = (elapsed - 3.1) / duration; // 0.0 到 1.0
-
-            // 自定义速度曲线：
-            // 0.0-0.4 (前段): 接近线性/匀速
-            // 0.4-0.6 (中段): 剧烈加速 (Swoop)
-            // 0.6-1.0 (后段): 缓出 (Ease Out)
+        // --- 动画控制系统 (Cinematic Update) ---
+        window.AnimationSys = {
+            isPlaying: false,
+            startTime: 0,
+            curve: null, // 存储运镜曲线
             
-            let t;
-            if (rawP < 0.4) {
-                // 前40%的时间走完前25%的路程 (慢速匀速)
-                t = rawP * 0.625; 
-            } else {
-                // 后60%的时间，先快后慢
-                // 归一化后半段的时间 (0 to 1)
-                const subT = (rawP - 0.4) / 0.6; 
-                // 使用 CubicOut 缓动：先快后慢
-                const easedSubT = 1 - Math.pow(1 - subT, 3);
-                // 映射到剩余的 75% 路程
-                t = 0.25 + easedSubT * 0.75;
-            }
+            initCurve: function() {
+                // 定义第2阶段的贝塞尔/样条曲线路径
+                // 对应你的示意图：绿色(起)-红色(加速)-绿色(落)
+                this.curve = new THREE.CatmullRomCurve3([
+                    new THREE.Vector3(10, -110, 30),   // P0: 极低处，树屁股下面偏侧方 (Start)
+                    new THREE.Vector3(30, -70, 50),    // P1: 缓慢靠近树底 (前半段匀速区)
+                    new THREE.Vector3(60, -20, 60),    // P2: 突然加速区，绕到侧面
+                    new THREE.Vector3(20, 50, 90),     // P3: 爬升到高处
+                    new THREE.Vector3(-50, 70, 130)    // P4: 减速结束点 (End of Phase 2)
+                ]);
+                this.curve.curveType = 'catmullrom';
+                this.curve.tension = 0.5; // 曲线平滑度
+            },
 
-            // 获取曲线上的位置
-            const point = this.curve.getPoint(t);
-            camera.position.copy(point);
-
-            // 动态 LookAt：从树底 (-20) 逐渐抬升到树中上部 (30)
-            // 这样镜头不会一直盯着树根，而是随着上升而抬起视角
-            const lookAtTarget = new THREE.Vector3(0, -20 + t * 50, 0);
-            camera.lookAt(lookAtTarget);
-
-            // 4.9s 触发爆炸 (4.9s 刚好对应 rawP ≈ 0.44，也就是刚开始加速的时候，视觉效果最好)
-            if (elapsed >= 4.9 && currentState !== STATE.SCATTER) {
-                currentState = STATE.SCATTER;
-                AudioSys.playOpen(); 
-            }
-            
-            // 保持旋转惯性
-            mainGroup.rotation.y -= 0.01;
-
-        } else if (elapsed < 13.0) {
-            // Phase 3: 7.2-13.0s 回归默认位置
-            const p = (elapsed - 7.2) / (13.0 - 7.2);
-            const smoothP = p * p * (3 - 2 * p); // SmoothStep
-
-            // 起点需要衔接 Phase 2 的终点
-            // Phase 2 终点是 (0, 120, 180)
-            const startPos = new THREE.Vector3(0, 120, 180); 
-            const endPos = new THREE.Vector3(0, 0, CONFIG.camDistance); // 默认位置
-
-            camera.position.lerpVectors(startPos, endPos, smoothP);
-            camera.lookAt(0, 0, 0);
-
-            if (elapsed >= 10.2 && currentState !== STATE.TREE) {
+            start: function() {
+                if (!this.curve) this.initCurve();
+                this.isPlaying = true;
+                this.startTime = performance.now();
                 currentState = STATE.TREE;
-                AudioSys.playClose();
-            }
+                
+                AudioSys.playIntro();
+                updateStatus("CINE ANIMATION START", "#d4af37");
+            },
 
-            mainGroup.rotation.y += 0.004;
-            mainGroup.rotation.x *= 0.9;
-        } else {
-            // 结束
-            this.isPlaying = false;
-            camera.position.set(0, 0, CONFIG.camDistance);
-            camera.lookAt(0, 0, 0);
-            updateStatus("动画结束，请伸手互动", "#0f0");
-            AudioSys.endIntroAndStartLoop();
-        }
-    }
-};
+            replay: function() {
+                mainGroup.rotation.set(0,0,0);
+                rotationVelocity = {x:0, y:0};
+                this.start();
+            },
+
+            update: function(now) {
+                if (!this.isPlaying) return;
+
+                const elapsed = (now - this.startTime) / 1000;
+                
+                // --- Phase 1: 0 ~ 3.1s (保持不变) ---
+                // 俯视树顶，旋转加速
+                if (elapsed < 3.1) {
+                    const p = elapsed / 3.1;
+                    camera.position.set(20, 80, 20); 
+                    camera.lookAt(0, 45, 0); 
+                    mainGroup.rotation.y -= (0.005 + p * 0.04); 
+
+                } 
+                // --- Phase 2: 3.1 ~ 7.2s (核心修改) ---
+                // 底部切入 -> 曲线加速爬升 -> 缓慢悬停
+                else if (elapsed < 7.2) {
+                    const duration = 7.2 - 3.1;
+                    const rawP = (elapsed - 3.1) / duration; // 0 到 1 的线性进度
+
+                    // [关键算法] 速度控制：模拟 "匀速 -> 突然加速 -> 缓出"
+                    // 使用三次多项式混合来制造"突然"的感觉
+                    let timeWarp;
+                    if (rawP < 0.4) {
+                        // 前 40% 时间：相对缓慢匀速 (模拟在树底下找角度)
+                        timeWarp = rawP * 0.6; 
+                    } else {
+                        // 后 60% 时间：突然加速甩上去，然后 EaseOut
+                        const t = (rawP - 0.4) / 0.6;
+                        // const easeOut = 1 - Math.pow(1 - t, 3); // Cubic EaseOut
+                        // 混合一下，让加速感更强
+                        timeWarp = 0.24 + (1 - Math.pow(1 - t, 3)) * 0.76;
+                    }
+
+                    // 获取曲线上的位置
+                    const pos = this.curve.getPointAt(timeWarp);
+                    camera.position.copy(pos);
+
+                    // 动态焦点：从仰视变为平视
+                    // 树底时看 (0, -20, 0)，飞上去时看 (0, 10, 0)
+                    const lookAtTarget = new THREE.Vector3(0, -20 + rawP * 30, 0);
+                    camera.lookAt(lookAtTarget);
+
+                    // 4.9s 触发爆炸 (时间点不变)
+                    if (elapsed >= 4.9 && currentState !== STATE.SCATTER) {
+                        currentState = STATE.SCATTER;
+                        AudioSys.playOpen(); 
+                    }
+                    
+                    // 伴随轻微旋转，增加动感
+                    mainGroup.rotation.y -= 0.015;
+                } 
+                // --- Phase 3: 7.2 ~ 13.0s (修改以衔接 Phase 2) ---
+                // 从 Phase 2 的结束点回归默认位置
+                else if (elapsed < 13.0) {
+                    const p = (elapsed - 7.2) / (13.0 - 7.2);
+                    const smoothP = p * p * (3 - 2 * p); // SmoothStep
+
+                    // StartPos 必须严格等于 Phase 2 的最后一个点 P4
+                    const startPos = new THREE.Vector3(-50, 70, 130); 
+                    // EndPos 回到默认
+                    const endPos = new THREE.Vector3(0, 0, CONFIG.camDistance); 
+
+                    camera.position.lerpVectors(startPos, endPos, smoothP);
+                    
+                    // 焦点同时也慢慢回到正中心
+                    const startLook = new THREE.Vector3(0, 10, 0);
+                    const endLook = new THREE.Vector3(0, 0, 0);
+                    const currentLook = new THREE.Vector3().lerpVectors(startLook, endLook, smoothP);
+                    camera.lookAt(currentLook);
+
+                    // 10.2s 恢复闭合
+                    if (elapsed >= 10.2 && currentState !== STATE.TREE) {
+                        currentState = STATE.TREE;
+                        AudioSys.playClose();
+                    }
+
+                    // 慢慢修正旋转角度
+                    mainGroup.rotation.y += 0.004;
+                    mainGroup.rotation.x *= 0.9;
+                } 
+                // --- End ---
+                else {
+                    this.isPlaying = false;
+                    camera.position.set(0, 0, CONFIG.camDistance);
+                    camera.lookAt(0, 0, 0);
+                    updateStatus("动画结束，请伸手互动", "#0f0");
+                    AudioSys.endIntroAndStartLoop();
+                }
+            }
+        };
 
 
         // --- 音频系统 (保持不变) ---
